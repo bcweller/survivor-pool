@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  background-color: #0b1120;
+  color: #f3f4f6;
+}
+
+.card {
+  @apply bg-gridiron-800 border border-gridiron-700 rounded-xl shadow-lg;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-lg px-4 py-2 font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+}
+
+.btn-primary {
+  @apply btn bg-accent text-gridiron-900 hover:bg-accent-dark;
+}
+
+.btn-secondary {
+  @apply btn bg-gridiron-700 text-gray-100 hover:bg-gridiron-700/70;
+}
+
+.input {
+  @apply w-full rounded-lg bg-gridiron-900 border border-gridiron-700 px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent;
+}

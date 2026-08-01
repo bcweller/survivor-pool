@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Auth.js (NextAuth) required models ----------
+
+model User {
+  id            String       @id @default(cuid())
+  name          String?
+  email         String?      @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?      // set only for email/password signups
+  isSiteAdmin   Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+
+  accounts      Account[]
+  sessions      Session[]
+  memberships   Membership[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- League domain models ----------
+
+enum LockRule {
+  FIRST_KICKOFF // whole week locks at the first game's kickoff (recommended/default)
+  PER_GAME      // each team locks at its own game's kickoff
+}
+
+model League {
+  id          String       @id @default(cuid())
+  name        String
+  season      Int
+  buyInCents  Int          @default(0)
+  lockRule    LockRule     @default(FIRST_KICKOFF)
+  inviteCode  String       @unique
+  isArchived  Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+
+  memberships Membership[]
+  picks       Pick[]
+}
+
+model Membership {
+  id             String    @id @default(cuid())
+  userId         String
+  leagueId       String
+  isCommissioner Boolean   @default(false)
+  paid           Boolean   @default(false)
+  paidAt         DateTime?
+  paidNote       String?
+  eliminated     Boolean   @default(false)
+  eliminatedWeek Int?
+  joinedAt       DateTime  @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  picks  Pick[]
+
+  @@unique([userId, leagueId])
+}
+
+model Team {
+  id             String @id @default(cuid())
+  espnId         String @unique
+  abbreviation   String @unique
+  name           String
+  city           String
+  conference     String
+  division       String
+  primaryColor   String
+  secondaryColor String
+  logoUrl        String
+
+  homeGames Game[] @relation("HomeGames")
+  awayGames Game[] @relation("AwayGames")
+  picks     Pick[]
+  favoredIn Game[] @relation("FavoriteTeam")
+}
+
+enum GameStatus {
+  SCHEDULED
+  IN_PROGRESS
+  FINAL
+}
+
+model Game {
+  id            String     @id @default(cuid())
+  espnId        String     @unique
+  season        Int
+  week          Int
+  kickoff       DateTime
+  status        GameStatus @default(SCHEDULED)
+  homeTeamId    String
+  awayTeamId    String
+  homeScore     Int?
+  awayScore     Int?
+  favoriteTeamId String?
+  spread        Float?     // positive number = favorite's points-favored-by
+
+  homeTeam     Team  @relation("HomeGames", fields: [homeTeamId], references: [id])
+  awayTeam     Team  @relation("AwayGames", fields: [awayTeamId], references: [id])
+  favoriteTeam Team? @relation("FavoriteTeam", fields: [favoriteTeamId], references: [id])
+
+  @@index([season, week])
+}
+
+enum PickResult {
+  PENDING
+  WIN
+  LOSS
+  TIE_ADVANCE // a tie also advances the player, per league rules
+}
+
+model Pick {
+  id           String     @id @default(cuid())
+  membershipId String
+  leagueId     String
+  teamId       String
+  season       Int
+  week         Int
+  result       PickResult @default(PENDING)
+  isAutoPick   Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  league     League     @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  team       Team       @relation(fields: [teamId], references: [id])
+
+  @@unique([membershipId, teamId])  // a team may only ever be picked once per member
+  @@unique([membershipId, week])    // one pick per member per week
+}
