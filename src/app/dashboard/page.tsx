@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { BASE_PATH } from '@/lib/basePath'
 
 type Membership = {
   id: string
@@ -46,7 +47,7 @@ export default function DashboardPage() {
   }, [status, router])
 
   const loadMemberships = useCallback(async () => {
-    const res = await fetch('/api/leagues')
+    const res = await fetch(`${BASE_PATH}/api/leagues`)
     if (res.ok) {
       const data = await res.json()
       setMemberships(data)
@@ -58,7 +59,7 @@ export default function DashboardPage() {
 
   const loadPicks = useCallback(async () => {
     if (!leagueId) return
-    const res = await fetch(`/api/picks?leagueId=${leagueId}&week=${week}`)
+    const res = await fetch(`${BASE_PATH}/api/picks?leagueId=${leagueId}&week=${week}`)
     if (res.ok) {
       const data = await res.json()
       setTeams(data.teams)
@@ -71,7 +72,7 @@ export default function DashboardPage() {
 
   async function submitPick(teamId: string) {
     setMessage(null)
-    const res = await fetch('/api/picks', {
+    const res = await fetch(`${BASE_PATH}/api/picks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ leagueId, week, teamId }),
@@ -82,7 +83,7 @@ export default function DashboardPage() {
   }
 
   async function joinLeague() {
-    const res = await fetch('/api/leagues/join', {
+    const res = await fetch(`${BASE_PATH}/api/leagues/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ inviteCode }),
@@ -91,7 +92,7 @@ export default function DashboardPage() {
   }
 
   async function createLeague() {
-    const res = await fetch('/api/leagues', {
+    const res = await fetch(`${BASE_PATH}/api/leagues`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newLeagueName, season: new Date().getFullYear(), buyInCents: 0 }),

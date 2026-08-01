@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
+import { BASE_PATH } from '@/lib/basePath'
 
 export default function AdminPage() {
   const { data: session } = useSession()
@@ -12,7 +13,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!session) return
-    fetch('/api/leagues').then((r) => r.json()).then((ms) => {
+    fetch(`${BASE_PATH}/api/leagues`).then((r) => r.json()).then((ms) => {
       const commish = ms.filter((m: any) => m.isCommissioner)
       setMemberships(commish)
       if (commish.length > 0) setLeagueId(commish[0].leagueId)
@@ -21,7 +22,7 @@ export default function AdminPage() {
 
   const load = useCallback(async () => {
     if (!leagueId) return
-    const res = await fetch(`/api/admin/members?leagueId=${leagueId}`)
+    const res = await fetch(`${BASE_PATH}/api/admin/members?leagueId=${leagueId}`)
     if (res.ok) setMembers(await res.json())
     else setError((await res.json()).error)
   }, [leagueId])
@@ -29,7 +30,7 @@ export default function AdminPage() {
   useEffect(() => { load() }, [load])
 
   async function update(membershipId: string, patch: Record<string, unknown>) {
-    await fetch('/api/admin/members', {
+    await fetch(`${BASE_PATH}/api/admin/members`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ leagueId, membershipId, ...patch }),

@@ -8,6 +8,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
 import { sendMail, emailTemplates } from './email'
+import { BASE_PATH } from './basePath'
 
 // NextAuth v4 dropped its built-in Yahoo provider after Yahoo moved to
 // standard OpenID Connect, so it's configured here directly against Yahoo's
@@ -99,7 +100,7 @@ export const authOptions: AuthOptions = {
   session: { strategy: 'jwt' }, // required when mixing OAuth providers with Credentials
   providers,
   pages: {
-    signIn: '/login',
+    signIn: `${BASE_PATH}/login`,
   },
   callbacks: {
     async jwt({ token, user }) {

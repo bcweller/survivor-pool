@@ -21,7 +21,12 @@ export async function GET(req: Request) {
 
   const members = await prisma.membership.findMany({
     where: { leagueId },
-    include: { user: true, picks: { include: { team: true }, orderBy: { week: 'asc' } } },
+    // select only safe User fields — never passwordHash — since this is
+    // returned to the client as-is below.
+    include: {
+      user: { select: { name: true, email: true } },
+      picks: { include: { team: true }, orderBy: { week: 'asc' } },
+    },
     orderBy: { joinedAt: 'asc' },
   })
   return NextResponse.json(members)

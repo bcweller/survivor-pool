@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
+import { BASE_PATH } from '@/lib/basePath'
 
 export function Header() {
   const { data: session } = useSession()
@@ -18,7 +19,13 @@ export function Header() {
               <Link href="/dashboard" className="text-gray-300 hover:text-white">Dashboard</Link>
               <Link href="/standings" className="text-gray-300 hover:text-white">Standings</Link>
               <Link href="/admin" className="text-gray-300 hover:text-white">Commissioner</Link>
-              <button onClick={() => signOut()} className="btn-secondary text-xs">Sign out</button>
+              {/* Explicit relative callbackUrl: signOut() defaults to window.location.href,
+                  an absolute URL whose host may not match NEXTAUTH_URL's configured origin
+                  (e.g. reached via a LAN hostname instead of the IP in .env) — NextAuth then
+                  silently discards that "external" callback and redirects to the bare
+                  configured origin with no /survivor-pool prefix, landing on a different app
+                  entirely. A relative, basePath-prefixed URL avoids that origin check. */}
+              <button onClick={() => signOut({ callbackUrl: `${BASE_PATH}/login` })} className="btn-secondary text-xs">Sign out</button>
             </>
           ) : (
             <Link href="/login" className="btn-primary text-xs">Sign in</Link>

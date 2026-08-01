@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
+import { BASE_PATH } from '@/lib/basePath'
 
 type StandingsMember = {
   id: string
@@ -19,7 +20,7 @@ export default function StandingsPage() {
 
   useEffect(() => {
     if (!session) return
-    fetch('/api/leagues').then((r) => r.json()).then((ms) => {
+    fetch(`${BASE_PATH}/api/leagues`).then((r) => r.json()).then((ms) => {
       setMemberships(ms)
       if (ms.length > 0) setLeagueId(ms[0].leagueId)
     })
@@ -27,7 +28,7 @@ export default function StandingsPage() {
 
   const load = useCallback(async () => {
     if (!leagueId) return
-    const res = await fetch(`/api/leagues/${leagueId}/standings`)
+    const res = await fetch(`${BASE_PATH}/api/leagues/${leagueId}/standings`)
     if (res.ok) setData(await res.json())
   }, [leagueId])
 

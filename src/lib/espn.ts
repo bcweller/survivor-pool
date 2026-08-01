@@ -30,6 +30,21 @@ export async function fetchWeekScoreboard(season: number, week: number, seasonTy
   if (!res.ok) throw new Error(`ESPN scoreboard fetch failed: ${res.status}`)
   const data = await res.json()
 
+  // ESPN's scoreboard endpoint doesn't error for a season/week it has no
+  // schedule for yet (e.g. querying a regular-season week before that
+  // season's schedule is fully populated) — it silently falls back to
+  // unrelated data instead (observed: requesting the not-yet-scheduled 2026
+  // week 1 returned the real, already-final 2025 week 1). The response
+  // self-reports what it actually served, so cross-check that against what
+  // we asked for and refuse to ingest a mismatch rather than silently
+  // corrupting Game rows with the wrong season's results.
+  if (data.season?.year !== season || data.week?.number !== week) {
+    throw new Error(
+      `ESPN returned season ${data.season?.year} week ${data.week?.number} instead of the requested ` +
+      `season ${season} week ${week} — refusing to ingest mismatched data`
+    )
+  }
+
   const games: EspnGame[] = []
   for (const event of data.events ?? []) {
     const comp = event.competitions?.[0]

@@ -15,7 +15,12 @@ export async function GET(_req: Request, { params }: { params: { leagueId: strin
   const league = await prisma.league.findUniqueOrThrow({ where: { id: params.leagueId } })
   const members = await prisma.membership.findMany({
     where: { leagueId: params.leagueId },
-    include: { user: true, picks: { include: { team: true }, orderBy: { week: 'asc' } } },
+    // select only safe User fields — never passwordHash — since `champion`
+    // below returns one of these records straight to the client.
+    include: {
+      user: { select: { name: true } },
+      picks: { include: { team: true }, orderBy: { week: 'asc' } },
+    },
     orderBy: [{ eliminated: 'asc' }, { eliminatedWeek: 'desc' }],
   })
 
@@ -30,16 +35,22 @@ export async function GET(_req: Request, { params }: { params: { leagueId: strin
 
   const aliveCount = typedMembers.filter((m) => !m.eliminated).length
 
+  // Build the safe, client-facing shape once and derive champion from it —
+  // never return a raw membership/user record, which would leak fields like
+  // passwordHash (Prisma's `include: { user: true }` above pulls every
+  // User column, not just name).
+  const safeMembers = typedMembers.map((m) => ({
+    id: m.id,
+    name: m.user.name,
+    eliminated: m.eliminated,
+    eliminatedWeek: m.eliminatedWeek,
+    picks: m.picks.map((p) => ({ week: p.week, team: `${p.team.city} ${p.team.name}`, result: p.result, isAutoPick: p.isAutoPick })),
+  }))
+
   return NextResponse.json({
     league,
     aliveCount,
-    champion: aliveCount === 1 ? typedMembers.find((m) => !m.eliminated) : null,
-    members: typedMembers.map((m) => ({
-      id: m.id,
-      name: m.user.name,
-      eliminated: m.eliminated,
-      eliminatedWeek: m.eliminatedWeek,
-      picks: m.picks.map((p) => ({ week: p.week, team: `${p.team.city} ${p.team.name}`, result: p.result, isAutoPick: p.isAutoPick })),
-    })),
+    champion: aliveCount === 1 ? safeMembers.find((m) => !m.eliminated) : null,
+    members: safeMembers,
   })
 }

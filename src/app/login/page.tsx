@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { BASE_PATH } from '@/lib/basePath'
 
 const PROVIDERS = [
   { id: 'google', label: 'Continue with Google' },
@@ -26,7 +27,7 @@ export default function LoginPage() {
     setBusy(true)
     try {
       if (mode === 'signup') {
-        const res = await fetch('/api/signup', {
+        const res = await fetch(`${BASE_PATH}/api/signup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, password }),
@@ -54,7 +55,7 @@ export default function LoginPage() {
 
       <div className="space-y-2">
         {PROVIDERS.map((p) => (
-          <button key={p.id} onClick={() => signIn(p.id, { callbackUrl: '/dashboard' })} className="btn-secondary w-full">
+          <button key={p.id} onClick={() => signIn(p.id, { callbackUrl: `${BASE_PATH}/dashboard` })} className="btn-secondary w-full">
             {p.label}
           </button>
         ))}

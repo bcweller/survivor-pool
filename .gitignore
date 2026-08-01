@@ -5,3 +5,4 @@ node_modules
 *.log
 /prisma/migrations/.tmp
 dist
+next-env.d.ts
