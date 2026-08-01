@@ -23,17 +23,30 @@ export async function GET(_req: Request, { params }: { params: { leagueId: strin
     },
     orderBy: [{ eliminated: 'asc' }, { eliminatedWeek: 'desc' }],
   })
+  const games = await prisma.game.findMany({ where: { season: league.season }, select: { week: true } })
 
   type MemberRow = {
     id: string
     eliminated: boolean
     eliminatedWeek: number | null
     user: { name: string | null }
-    picks: { week: number; result: string; isAutoPick: boolean; team: { city: string; name: string } }[]
+    picks: {
+      week: number
+      result: string
+      isAutoPick: boolean
+      team: { city: string; name: string; abbreviation: string; logoUrl: string }
+    }[]
   }
   const typedMembers = members as MemberRow[]
 
   const aliveCount = typedMembers.filter((m) => !m.eliminated).length
+
+  // Full set of weeks to show as grid columns — every week with synced
+  // games, plus any week someone has a pick for (belt and suspenders in
+  // case a week's games were ever removed after picks were made).
+  const weekSet = new Set<number>(games.map((g) => g.week))
+  for (const m of typedMembers) for (const p of m.picks) weekSet.add(p.week)
+  const weeks = [...weekSet].sort((a, b) => a - b)
 
   // Build the safe, client-facing shape once and derive champion from it —
   // never return a raw membership/user record, which would leak fields like
@@ -44,12 +57,20 @@ export async function GET(_req: Request, { params }: { params: { leagueId: strin
     name: m.user.name,
     eliminated: m.eliminated,
     eliminatedWeek: m.eliminatedWeek,
-    picks: m.picks.map((p) => ({ week: p.week, team: `${p.team.city} ${p.team.name}`, result: p.result, isAutoPick: p.isAutoPick })),
+    picks: m.picks.map((p) => ({
+      week: p.week,
+      team: `${p.team.city} ${p.team.name}`,
+      abbreviation: p.team.abbreviation,
+      logoUrl: p.team.logoUrl,
+      result: p.result,
+      isAutoPick: p.isAutoPick,
+    })),
   }))
 
   return NextResponse.json({
     league,
     aliveCount,
+    weeks,
     champion: aliveCount === 1 ? safeMembers.find((m) => !m.eliminated) : null,
     members: safeMembers,
   })

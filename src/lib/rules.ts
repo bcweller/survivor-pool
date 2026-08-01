@@ -20,6 +20,13 @@ export function computeWeekLockTime(
   return g ? g.kickoff : null
 }
 
+/** The "current" pickable week for a league: the latest week that has any
+ * synced games. Returns null if no games have been synced yet at all. */
+export function computeCurrentWeek(games: { week: number }[]): number | null {
+  if (games.length === 0) return null
+  return games.reduce((max, g) => Math.max(max, g.week), 0)
+}
+
 /**
  * Settle all FINAL games for a week: mark each pick WIN / LOSS / TIE_ADVANCE,
  * eliminate members whose team lost, and email results. Idempotent — safe to

@@ -4,19 +4,45 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { BASE_PATH } from '@/lib/basePath'
 
+type Pick = {
+  week: number
+  team: string
+  abbreviation: string
+  logoUrl: string
+  result: 'PENDING' | 'WIN' | 'LOSS' | 'TIE_ADVANCE'
+  isAutoPick: boolean
+}
+
 type StandingsMember = {
   id: string
   name: string | null
   eliminated: boolean
   eliminatedWeek: number | null
-  picks: { week: number; team: string; result: string; isAutoPick: boolean }[]
+  picks: Pick[]
+}
+
+type Standings = {
+  aliveCount: number
+  weeks: number[]
+  champion: { name: string | null } | null
+  members: StandingsMember[]
+}
+
+// Cell background by pick outcome — survived (green), lost (red), not yet
+// decided (blue, still in progress), vs. a week the player wasn't even in
+// the pool for anymore (grey, no border, visually "faded out").
+const RESULT_STYLE: Record<Pick['result'], string> = {
+  WIN: 'bg-green-900/50 border-green-500/50',
+  TIE_ADVANCE: 'bg-green-900/50 border-green-500/50',
+  LOSS: 'bg-red-900/50 border-red-500/50',
+  PENDING: 'bg-blue-900/40 border-blue-500/40',
 }
 
 export default function StandingsPage() {
   const { data: session } = useSession()
   const [memberships, setMemberships] = useState<any[]>([])
   const [leagueId, setLeagueId] = useState('')
-  const [data, setData] = useState<{ aliveCount: number; champion: any; members: StandingsMember[] } | null>(null)
+  const [data, setData] = useState<Standings | null>(null)
 
   useEffect(() => {
     if (!session) return
@@ -54,21 +80,63 @@ export default function StandingsPage() {
         <p className="text-gray-400 text-sm">{data.aliveCount} player{data.aliveCount === 1 ? '' : 's'} still alive</p>
       )}
 
-      <div className="card divide-y divide-gridiron-700">
-        {data?.members.map((m) => (
-          <div key={m.id} className="p-4 flex items-center justify-between">
-            <div>
-              <p className={`font-semibold ${m.eliminated ? 'text-gray-500 line-through' : 'text-white'}`}>{m.name}</p>
-              <p className="text-xs text-gray-500">
-                {m.picks.map((p) => `W${p.week}: ${p.team}${p.isAutoPick ? ' (auto)' : ''}`).join(' · ')}
-              </p>
-            </div>
-            <span className={`text-sm font-semibold ${m.eliminated ? 'text-red-400' : 'text-accent'}`}>
-              {m.eliminated ? `Out (Wk ${m.eliminatedWeek})` : 'Alive'}
-            </span>
-          </div>
-        ))}
-      </div>
+      {data && data.weeks.length === 0 && (
+        <p className="text-gray-400">No games synced yet this season — picks will show up here once weeks are underway.</p>
+      )}
+
+      {data && data.weeks.length > 0 && (
+        <div className="card overflow-x-auto">
+          <table className="border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-10 bg-gridiron-800 text-left px-3 py-2 text-gray-400 font-medium border-b border-gridiron-700">
+                  Player
+                </th>
+                {data.weeks.map((w) => (
+                  <th key={w} className="px-1 py-2 text-gray-400 font-medium border-b border-gridiron-700 min-w-[52px]">
+                    Wk{w}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.members.map((m) => (
+                <tr key={m.id} className="border-b border-gridiron-700/60 last:border-0">
+                  <td className="sticky left-0 z-10 bg-gridiron-800 px-3 py-2 whitespace-nowrap">
+                    <span className={m.eliminated ? 'text-gray-500 line-through' : 'text-white font-medium'}>
+                      {m.name}
+                    </span>
+                  </td>
+                  {data.weeks.map((w) => {
+                    const pick = m.picks.find((p) => p.week === w)
+                    const didNotPlay = !pick && m.eliminatedWeek != null && w > m.eliminatedWeek
+                    return (
+                      <td key={w} className="px-1 py-1 text-center">
+                        {pick ? (
+                          <div
+                            title={`${pick.team}${pick.isAutoPick ? ' (auto-pick)' : ''}`}
+                            className={`relative mx-auto flex h-11 w-11 items-center justify-center rounded-md border ${RESULT_STYLE[pick.result]}`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={pick.logoUrl} alt={pick.abbreviation} className="h-7 w-7" />
+                            {pick.isAutoPick && (
+                              <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-yellow-400 border border-gridiron-900" />
+                            )}
+                          </div>
+                        ) : didNotPlay ? (
+                          <div className="mx-auto h-11 w-11 rounded-md bg-gray-700/20" />
+                        ) : (
+                          <div className="mx-auto h-11 w-11" />
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

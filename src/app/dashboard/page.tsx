@@ -34,7 +34,7 @@ export default function DashboardPage() {
 
   const [memberships, setMemberships] = useState<Membership[]>([])
   const [leagueId, setLeagueId] = useState<string>('')
-  const [week, setWeek] = useState(1)
+  const [week, setWeek] = useState<number | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [locked, setLocked] = useState(false)
   const [currentPickTeamId, setCurrentPickTeamId] = useState<string | null>(null)
@@ -59,18 +59,22 @@ export default function DashboardPage() {
 
   const loadPicks = useCallback(async () => {
     if (!leagueId) return
-    const res = await fetch(`${BASE_PATH}/api/picks?leagueId=${leagueId}&week=${week}`)
+    // No week param — the server auto-detects the current pickable week
+    // (the latest one with synced games) since there's no manual selector.
+    const res = await fetch(`${BASE_PATH}/api/picks?leagueId=${leagueId}`)
     if (res.ok) {
       const data = await res.json()
+      setWeek(data.week)
       setTeams(data.teams)
       setLocked(data.locked)
       setCurrentPickTeamId(data.currentPick?.teamId ?? null)
     }
-  }, [leagueId, week])
+  }, [leagueId])
 
   useEffect(() => { loadPicks() }, [loadPicks])
 
   async function submitPick(teamId: string) {
+    if (!week) return
     setMessage(null)
     const res = await fetch(`${BASE_PATH}/api/picks`, {
       method: 'POST',
@@ -126,8 +130,7 @@ export default function DashboardPage() {
             <select className="input w-auto" value={leagueId} onChange={(e) => setLeagueId(e.target.value)}>
               {memberships.map((m) => <option key={m.leagueId} value={m.leagueId}>{m.league.name}</option>)}
             </select>
-            <label className="text-sm text-gray-400">Week</label>
-            <input type="number" min={1} max={18} className="input w-20" value={week} onChange={(e) => setWeek(Number(e.target.value))} />
+            {week && <span className="font-semibold text-white">Week {week}</span>}
             {currentMembership?.eliminated && <span className="text-red-400 font-semibold">You&rsquo;ve been eliminated</span>}
             {currentMembership && !currentMembership.paid && (
               <span className="text-yellow-400 text-sm">Dues not yet marked paid by commissioner</span>
@@ -136,6 +139,10 @@ export default function DashboardPage() {
 
           {locked && <p className="text-sm text-yellow-400">Picks are locked for Week {week}.</p>}
           {message && <p className="text-sm text-accent">{message}</p>}
+
+          {!week && (
+            <p className="text-gray-400">No games scheduled yet for this season — check back once the schedule is synced.</p>
+          )}
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {teams.map((t) => (

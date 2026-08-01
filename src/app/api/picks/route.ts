@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { computeWeekLockTime } from '@/lib/rules'
+import { computeWeekLockTime, computeCurrentWeek } from '@/lib/rules'
 import { sendMail, emailTemplates } from '@/lib/email'
 
 async function getMembership(userId: string, leagueId: string) {
@@ -15,12 +15,32 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const leagueId = searchParams.get('leagueId')
-  const week = Number(searchParams.get('week'))
-  if (!leagueId || !week) return NextResponse.json({ error: 'leagueId and week are required' }, { status: 400 })
+  const requestedWeek = searchParams.get('week')
+  if (!leagueId) return NextResponse.json({ error: 'leagueId is required' }, { status: 400 })
 
   const league = await prisma.league.findUniqueOrThrow({ where: { id: leagueId } })
   const membership = await getMembership((session.user as any).id, leagueId)
   if (!membership) return NextResponse.json({ error: 'Not a member of this league' }, { status: 403 })
+
+  // No explicit week from the client (the dashboard no longer has a manual
+  // selector) — auto-detect the current pickable week as the latest one
+  // with any synced games.
+  let week = requestedWeek ? Number(requestedWeek) : null
+  if (!week) {
+    const allSeasonGames = await prisma.game.findMany({ where: { season: league.season }, select: { week: true } })
+    week = computeCurrentWeek(allSeasonGames)
+    if (!week) {
+      return NextResponse.json({
+        week: null,
+        eliminated: membership.eliminated,
+        lockTime: null,
+        locked: false,
+        lockRule: league.lockRule,
+        currentPick: null,
+        teams: [],
+      })
+    }
+  }
 
   const [games, myPicks, existingPick] = await Promise.all([
     prisma.game.findMany({
@@ -53,6 +73,7 @@ export async function GET(req: Request) {
   ]).map((t) => ({ ...t, eligible: !usedTeamIds.has(t.id as string) }))
 
   return NextResponse.json({
+    week,
     eliminated: membership.eliminated,
     lockTime,
     locked,
